@@ -4,6 +4,7 @@ import { ApiError } from '../middleware/errorHandler';
 
 const router = Router();
 const container = Container.getInstance();
+const isDev = process.env.NODE_ENV !== 'production';
 
 /**
  * GET /api/datasets
@@ -45,9 +46,11 @@ router.get('/:id', async (req: Request, res: Response, next) => {
  */
 router.post('/', async (req: Request, res: Response, next) => {
   try {
-    console.log('📥 POST /api/datasets - Request received');
-    console.log('   Body:', JSON.stringify(req.body, null, 2));
-    console.log('   Headers:', JSON.stringify(req.headers, null, 2));
+    if (isDev) {
+      console.log('📥 POST /api/datasets - Request received');
+      console.log('   Body:', JSON.stringify(req.body, null, 2));
+      console.log('   Headers:', JSON.stringify(req.headers, null, 2));
+    }
     
     const { name, description } = req.body;
 
@@ -57,16 +60,22 @@ router.post('/', async (req: Request, res: Response, next) => {
       throw error;
     }
 
-    console.log('   Creating dataset:', { name, description });
+    if (isDev) {
+      console.log('   Creating dataset:', { name, description });
+    }
     const dataset = await container.createDatasetUseCase.execute({
       name,
       description,
     });
 
-    console.log('   ✅ Dataset created:', dataset.id);
+    if (isDev) {
+      console.log('   ✅ Dataset created:', dataset.id);
+    }
     res.status(201).json({ dataset });
   } catch (error: any) {
-    console.error('   ❌ Error creating dataset:', error.message);
+    if (isDev) {
+      console.error('   ❌ Error creating dataset:', error.message);
+    }
     next(error);
   }
 });

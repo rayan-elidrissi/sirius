@@ -23,12 +23,13 @@ const corsOptions = {
       callback(null, true);
       return;
     }
-    
+
     // Allow all localhost origins (any port) in development
-    const isLocalhost = origin.startsWith('http://localhost:') || 
-                       origin.startsWith('http://127.0.0.1:') ||
-                       origin.includes('localhost');
-    
+    const isLocalhost =
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.includes('localhost');
+
     if (isLocalhost) {
       console.log(`✅ CORS: Allowing origin: ${origin}`);
       callback(null, true);
@@ -65,22 +66,12 @@ app.use(notFoundHandler);
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server
-// Force start when executed via npm script (api:dev)
-// In WSL/ts-node, require.main === module might not work correctly
-console.log('🔍 Debug info:');
-console.log('  require.main === module:', require.main === module);
-console.log('  require.main?.filename:', require.main?.filename);
-console.log('  process.argv[0]:', process.argv[0]);
-console.log('  process.argv[1]:', process.argv[1]);
-console.log('  __filename:', __filename);
+// Start server unless we're running tests (allows importing app without side effects)
+if (process.env.NODE_ENV !== 'test') {
+  console.log('\n🚀 Starting server...');
 
-// Always start the server when this file is run directly
-// The server should stay alive because app.listen() keeps the event loop active
-console.log('\n🚀 Starting server...');
-
-try {
-  const server = app.listen(PORT, () => {
+  try {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Sirius Data Layer API running on http://localhost:${PORT}`);
       console.log(`📚 API Documentation:`);
       console.log(`   GET  /api/datasets - List all datasets`);
@@ -143,14 +134,11 @@ try {
         process.exit(0);
       });
     });
-
-    // Keep process alive - this should not be necessary but helps debug
-    console.log('💚 Process should stay alive. Event loop is active.');
-    
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
+}
 
 export default app;
 

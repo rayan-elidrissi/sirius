@@ -54,9 +54,10 @@ export default function CreateVersionModal({ projectId, onVersionCreated }: Crea
 
     try {
       // Step 1: Prepare commit data (call backend)
+      // Backend expects a datasetId; in the UI this is the projectId
       toast.loading('Preparing commit...');
-      const prepareResult = await api.prepareCommit({ 
-        projectId,
+      const prepareResult = await api.prepareCommit({
+        datasetId: projectId,
         includeAllEntries: false, // Only uncommitted files
       });
 
