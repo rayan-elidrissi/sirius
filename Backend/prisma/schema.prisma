@@ -1,0 +1,109 @@
+// Prisma schema for Sirius Data Layer
+// SQLite database for local persistence
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./sirius.db"
+}
+
+// Dataset represents a collection of versioned data
+model Dataset {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  manifestEntries ManifestEntry[]
+  versionCommits  VersionCommit[]
+  
+  @@index([name])
+}
+
+// ManifestEntry represents a single blob reference in a dataset
+model ManifestEntry {
+  id           String   @id @default(uuid())
+  datasetId    String
+  blobId       String   // Walrus blob ID (e.g., wblb...)
+  path         String?  // Logical path/name for the blob
+  metadata     String   // JSON string containing mime type, size, checksum, etc.
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  dataset      Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  versionCommits VersionCommitEntry[]
+  
+  @@index([datasetId])
+  @@index([blobId])
+}
+
+// VersionCommit represents a snapshot/version of a dataset
+model VersionCommit {
+  id            String   @id @default(uuid())
+  datasetId     String
+  versionRoot   String   // Merkle root hash of the manifest
+  parentRoot    String?  // Previous version's root (null for first version)
+  signature     String   // Ed25519 signature (base64)
+  publicKey     String   // Ed25519 public key used for signing (base64)
+  author        String?  // Optional author identifier (could be Sui address)
+  note          String?  // Version note/description
+  createdAt     DateTime @default(now())
+  
+  // Blockchain anchoring
+  suiTxHash     String?  // Sui transaction hash (if anchored)
+  blockHeight   Int?     // Block number
+  blockTimestamp Int?    // Blockchain timestamp
+  
+  // IPFS backup
+  ipfsCID       String?  // IPFS Content ID
+  ipfsUrl       String?  // IPFS Gateway URL
+  
+  // Multi-signature
+  isMultiSig    Boolean  @default(false)
+  requiredSigs  Int      @default(1)
+  
+  // Relations
+  dataset       Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  manifestEntries VersionCommitEntry[]
+  signatures    VersionSignature[]
+  
+  @@index([datasetId])
+  @@index([versionRoot])
+  @@index([parentRoot])
+  @@index([suiTxHash])
+}
+
+// Version signatures for multi-sig support
+model VersionSignature {
+  id              String   @id @default(uuid())
+  versionCommitId String
+  publicKey       String   // Signer's public key
+  signature       String   // Signature
+  signedAt        DateTime @default(now())
+  
+  // Relations
+  versionCommit   VersionCommit @relation(fields: [versionCommitId], references: [id], onDelete: Cascade)
+  
+  @@unique([versionCommitId, publicKey])
+  @@index([versionCommitId])
+}
+
+// Join table to track which manifest entries are in which version commits
+model VersionCommitEntry {
+  id              String   @id @default(uuid())
+  versionCommitId String
+  manifestEntryId String
+  
+  // Relations
+  versionCommit   VersionCommit @relation(fields: [versionCommitId], references: [id], onDelete: Cascade)
+  manifestEntry   ManifestEntry @relation(fields: [manifestEntryId], references: [id], onDelete: Cascade)
+  
+  @@unique([versionCommitId, manifestEntryId])
+  @@index([versionCommitId])
+  @@index([manifestEntryId])
+}
+

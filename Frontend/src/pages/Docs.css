@@ -1,0 +1,162 @@
+.docs-page {
+  display: flex;
+  min-height: 100vh;
+}
+
+.docs-layout {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.docs-content {
+  flex: 1;
+  margin-left: 17.5rem;
+}
+
+@media (max-width: 1024px) {
+  .docs-content {
+    margin-left: 0;
+  }
+}
+
+/* Sidebar Styles */
+.docs-sidebar {
+  position: fixed;
+  left: 0;
+  top: 6rem;
+  width: 17.5rem;
+  height: calc(100vh - 6rem);
+  background-color: #161923;
+  border-right: 1px solid #334155;
+  overflow-y: auto;
+  z-index: 10;
+  padding: 1.5rem 0;
+}
+
+@media (max-width: 1024px) {
+  .docs-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .docs-sidebar {
+    top: 5rem;
+    height: calc(100vh - 5rem);
+  }
+}
+
+.menu-container {
+  width: 100%;
+}
+
+.menu-wrapper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu-item-wrapper {
+  width: 100%;
+}
+
+.menu-item-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  width: 100%;
+}
+
+.menu-item-label-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  list-style: none;
+  margin: 0;
+}
+
+.menu-item-label-wrapper:hover {
+  background-color: rgba(151, 240, 229, 0.1);
+}
+
+.menu-item-chevron-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.chevron-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+  transition: transform 0.2s, color 0.2s;
+}
+
+.chevron-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.chevron-right {
+  opacity: 0.5;
+}
+
+.menu-item-label-text-wrapper {
+  flex: 1;
+}
+
+.menu-item-label {
+  color: #d1d5db;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  transition: color 0.2s;
+}
+
+.menu-item-label-wrapper:hover .menu-item-label {
+  color: #97F0E5;
+}
+
+/* Active menu item styling */
+.menu-item-link[href*="#"]:active .menu-item-label,
+.menu-item-link[href*="#"]:focus .menu-item-label {
+  color: #97F0E5;
+}
+
+.menu-item-nested-wrapper {
+  transition: height 0.3s ease, opacity 0.3s ease;
+  padding-left: 1rem;
+}
+
+.menu-item-nested-wrapper .menu-item-label-wrapper {
+  padding-left: 2rem;
+}
+
+.menu-item-nested-wrapper .menu-item-nested-wrapper .menu-item-label-wrapper {
+  padding-left: 3rem;
+}
+
+/* Scrollbar styling for sidebar */
+.docs-sidebar::-webkit-scrollbar {
+  width: 0.375rem;
+}
+
+.docs-sidebar::-webkit-scrollbar-track {
+  background: #161923;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 0.1875rem;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+

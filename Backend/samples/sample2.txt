@@ -1,0 +1,11 @@
+This is a sample text file for testing the Sirius Data Layer.
+
+It contains multiple lines of text to demonstrate:
+- File upload to Walrus
+- Blob ID retrieval
+- Manifest entry creation
+- Version commit with Merkle root
+- Signature verification
+
+This file will be used in the integration testing guide.
+

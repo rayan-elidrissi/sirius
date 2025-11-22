@@ -1,0 +1,21 @@
+[
+  {
+    "blobId": "REPLACE_WITH_ACTUAL_BLOB_ID_1",
+    "path": "sample1.csv",
+    "metadata": {
+      "mimeType": "text/csv",
+      "size": 1024,
+      "description": "Sample CSV file"
+    }
+  },
+  {
+    "blobId": "REPLACE_WITH_ACTUAL_BLOB_ID_2",
+    "path": "sample2.txt",
+    "metadata": {
+      "mimeType": "text/plain",
+      "size": 512,
+      "description": "Sample text file"
+    }
+  }
+]
+
