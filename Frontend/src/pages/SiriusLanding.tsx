@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../hooks/useWallet';
 import ConnectWalletButton from '../components/wallet/ConnectWalletButton';
@@ -12,15 +12,24 @@ import logoSirius from '../assets/svg/logo-sirius.svg';
  * Prompts wallet connection and explains the system
  */
 export default function SiriusLanding() {
-  const { isConnected } = useWallet();
+  const { isConnected, address } = useWallet();
   const navigate = useNavigate();
+  const [hasCheckedConnection, setHasCheckedConnection] = useState(false);
 
-  // If already connected, redirect to dashboard
+  // If already connected, redirect to dashboard (but only after initial check to avoid redirect loop)
   useEffect(() => {
-    if (isConnected) {
-      navigate('/dashboard');
+    if (!hasCheckedConnection) {
+      setHasCheckedConnection(true);
+      // Small delay to avoid redirect loop after disconnect
+      const timer = setTimeout(() => {
+        // Only redirect if truly connected (both isConnected and address exist)
+        if (isConnected && address) {
+          navigate('/dashboard');
+        }
+      }, 1000); // Increased delay to ensure disconnect state is updated
+      return () => clearTimeout(timer);
     }
-  }, [isConnected, navigate]);
+  }, [isConnected, address, navigate, hasCheckedConnection]);
 
   return (
     <div className="min-h-screen bg-[#161923] text-white relative overflow-hidden">
@@ -35,10 +44,31 @@ export default function SiriusLanding() {
       <div className="relative z-10">
         {/* Navigation */}
         <nav className="flex items-center justify-between px-8 py-6">
-          <div className="flex items-center gap-3">
-            <img src={logoSirius} alt="Sirius Logo" className="h-10" />
-            <span className="text-2xl font-bold">Sirius</span>
-          </div>
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-4 hover:opacity-80 transition-opacity group"
+          >
+            <div className="relative">
+              <img 
+                src={logoSirius} 
+                alt="Sirius Logo" 
+                className="h-16 w-16 group-hover:scale-110 transition-transform"
+                style={{
+                  filter: 'brightness(2.5) contrast(2) saturate(2) drop-shadow(0 0 15px rgba(151, 240, 229, 1)) drop-shadow(0 0 30px rgba(151, 240, 229, 0.7)) drop-shadow(0 0 45px rgba(151, 240, 229, 0.4))',
+                  WebkitFilter: 'brightness(2.5) contrast(2) saturate(2) drop-shadow(0 0 15px rgba(151, 240, 229, 1)) drop-shadow(0 0 30px rgba(151, 240, 229, 0.7)) drop-shadow(0 0 45px rgba(151, 240, 229, 0.4))',
+                }}
+              />
+              {/* Overlay pour épaisseur et couleur */}
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle, rgba(151, 240, 229, 0.4) 0%, transparent 70%)',
+                  mixBlendMode: 'screen',
+                }}
+              />
+            </div>
+            <span className="text-4xl font-bold text-white drop-shadow-md" style={{ fontFamily: 'TheAliens, sans-serif' }}>Sirius</span>
+          </button>
           <div className="flex items-center gap-6">
             <a
               href="/docs"

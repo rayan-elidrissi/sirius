@@ -26,6 +26,11 @@ export interface IDatasetRepository {
   findAll(): Promise<Dataset[]>;
 
   /**
+   * Find all datasets owned by a specific address
+   */
+  findByOwnerAddress(ownerAddress: string): Promise<Dataset[]>;
+
+  /**
    * Delete a dataset
    */
   delete(id: string): Promise<void>;

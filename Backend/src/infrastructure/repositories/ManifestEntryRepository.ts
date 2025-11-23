@@ -1,146 +1,44 @@
 import { IManifestEntryRepository } from '../../domain/repositories/IManifestEntryRepository';
 import { ManifestEntry, CreateManifestEntryInput } from '../../domain/entities/ManifestEntry';
-import { prisma } from '../database/PrismaClient';
 
 /**
- * Prisma implementation of IManifestEntryRepository
+ * @deprecated This repository uses the old schema which no longer exists.
+ * Use LocalRepoIndexRepository for Move-first architecture.
  */
 export class ManifestEntryRepository implements IManifestEntryRepository {
-  async create(input: CreateManifestEntryInput): Promise<ManifestEntry> {
-    const entry = await prisma.manifestEntry.create({
-      data: {
-        datasetId: input.datasetId,
-        blobId: input.blobId,
-        path: input.path || null,
-        metadata: JSON.stringify(input.metadata),
-      },
-    });
-
-    return this.mapToEntity(entry);
+  async create(_input: CreateManifestEntryInput): Promise<ManifestEntry> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async createMany(inputs: CreateManifestEntryInput[]): Promise<ManifestEntry[]> {
-    const entries = await prisma.$transaction(
-      inputs.map((input) =>
-        prisma.manifestEntry.create({
-          data: {
-            datasetId: input.datasetId,
-            blobId: input.blobId,
-            path: input.path || null,
-            metadata: JSON.stringify(input.metadata),
-          },
-        })
-      )
-    );
-
-    return entries.map((e: {
-      id: string;
-      datasetId: string;
-      blobId: string;
-      path: string | null;
-      metadata: string;
-      createdAt: Date;
-    }) => this.mapToEntity(e));
+  async createMany(_inputs: CreateManifestEntryInput[]): Promise<ManifestEntry[]> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async findById(id: string): Promise<ManifestEntry | null> {
-    const entry = await prisma.manifestEntry.findUnique({
-      where: { id },
-    });
-
-    return entry ? this.mapToEntity(entry) : null;
+  async findAll(): Promise<ManifestEntry[]> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async findByDatasetId(datasetId: string): Promise<ManifestEntry[]> {
-    const entries = await prisma.manifestEntry.findMany({
-      where: { datasetId },
-      orderBy: { createdAt: 'desc' }, // Most recent first
-    });
-
-    return entries.map((e: {
-      id: string;
-      datasetId: string;
-      blobId: string;
-      path: string | null;
-      metadata: string;
-      createdAt: Date;
-    }) => this.mapToEntity(e));
+  async findById(_id: string): Promise<ManifestEntry | null> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async findUncommittedByDatasetId(datasetId: string): Promise<ManifestEntry[]> {
-    // Find entries that are not in any version commit
-    const entries = await prisma.manifestEntry.findMany({
-      where: {
-        datasetId,
-        versionCommits: {
-          none: {},
-        },
-      },
-      orderBy: { createdAt: 'desc' }, // Most recent first
-    });
-
-    // Filter out demo blob IDs (wblb + 40 hex chars = 44 chars total)
-    // Demo blobs have format: wblb + 40 hex characters
-    // Real Walrus blobs on testnet use base64 format (not starting with wblb)
-    const filteredEntries = entries.filter((entry: {
-      id: string;
-      datasetId: string;
-      blobId: string;
-      path: string | null;
-      metadata: string;
-      createdAt: Date;
-    }) => {
-      // Exclude demo blob IDs: wblb followed by exactly 40 hex characters
-      const isDemoBlob = entry.blobId.startsWith('wblb') && 
-                         entry.blobId.length === 44 && 
-                         /^wblb[a-f0-9]{40}$/i.test(entry.blobId);
-      return !isDemoBlob;
-    });
-
-    return filteredEntries.map((e: {
-      id: string;
-      datasetId: string;
-      blobId: string;
-      path: string | null;
-      metadata: string;
-      createdAt: Date;
-    }) => this.mapToEntity(e));
+  async findByDatasetId(_datasetId: string): Promise<ManifestEntry[]> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async findByIds(ids: string[]): Promise<ManifestEntry[]> {
-    const entries = await prisma.manifestEntry.findMany({
-      where: {
-        id: { in: ids },
-      },
-      orderBy: { id: 'asc' },
-    });
-
-    return entries.map((e: {
-      id: string;
-      datasetId: string;
-      blobId: string;
-      path: string | null;
-      metadata: string;
-      createdAt: Date;
-    }) => this.mapToEntity(e));
+  async findByBlobId(_blobId: string): Promise<ManifestEntry[]> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  private mapToEntity(data: {
-    id: string;
-    datasetId: string;
-    blobId: string;
-    path: string | null;
-    metadata: string;
-    createdAt: Date;
-  }): ManifestEntry {
-    return {
-      id: data.id,
-      datasetId: data.datasetId,
-      blobId: data.blobId,
-      path: data.path,
-      metadata: JSON.parse(data.metadata) as Record<string, unknown>,
-      createdAt: data.createdAt,
-    };
+  async findUncommittedByDatasetId(_datasetId: string): Promise<ManifestEntry[]> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
+  }
+
+  async findByIds(_ids: string[]): Promise<ManifestEntry[]> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
+  }
+
+  async deleteByDatasetId(_datasetId: string): Promise<void> {
+    throw new Error('ManifestEntry model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 }
-

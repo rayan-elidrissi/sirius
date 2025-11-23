@@ -8,7 +8,10 @@ export async function listDatasets(): Promise<void> {
 
   try {
     const container = Container.getInstance();
-    const datasets = await container.listDatasetsUseCase.execute();
+    // CLI: Use a placeholder address (in real usage, this comes from wallet)
+    const ownerAddress = process.env.SUI_ADDRESS || '0x0000000000000000000000000000000000000000000000000000000000000000';
+    
+    const datasets = await container.listDatasetsUseCase.execute({ ownerAddress });
 
     if (datasets.length === 0) {
       console.log('No datasets found.');

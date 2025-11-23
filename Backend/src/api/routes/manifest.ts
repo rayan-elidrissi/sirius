@@ -5,7 +5,6 @@ import { ManifestMetadata } from '../../domain/entities/ManifestEntry';
 
 const router = Router();
 const container = Container.getInstance();
-const isDev = process.env.NODE_ENV !== 'production';
 
 /**
  * POST /api/manifest/entries
@@ -43,26 +42,22 @@ router.post('/entries', async (req: Request, res: Response, next) => {
       metadata: entry.metadata || ({} as ManifestMetadata),
     }));
 
-    if (isDev) {
-      console.log('📥 POST /api/manifest/entries - Creating manifest entries');
-      console.log(`   Dataset ID: ${datasetId}`);
-      console.log(`   Number of entries: ${manifestEntries.length}`);
-      manifestEntries.forEach((entry, index) => {
-        console.log(`   Entry ${index + 1}: blobId=${entry.blobId}, path=${entry.path}`);
-      });
-    }
+    console.log('📥 POST /api/manifest/entries - Creating manifest entries');
+    console.log(`   Dataset ID: ${datasetId}`);
+    console.log(`   Number of entries: ${manifestEntries.length}`);
+    manifestEntries.forEach((entry, index) => {
+      console.log(`   Entry ${index + 1}: blobId=${entry.blobId}, path=${entry.path}`);
+    });
 
     const createdEntries = await container.addManifestEntriesUseCase.execute({
       datasetId,
       entries: manifestEntries,
     });
 
-    if (isDev) {
-      console.log(`   ✅ Created ${createdEntries.length} manifest entries`);
-      createdEntries.forEach((entry, index) => {
-        console.log(`   Entry ${index + 1} ID: ${entry.id}, blobId: ${entry.blobId}`);
-      });
-    }
+    console.log(`   ✅ Created ${createdEntries.length} manifest entries`);
+    createdEntries.forEach((entry, index) => {
+      console.log(`   Entry ${index + 1} ID: ${entry.id}, blobId: ${entry.blobId}`);
+    });
 
     res.status(201).json({ entries: createdEntries });
   } catch (error: any) {
@@ -100,16 +95,10 @@ router.get('/entries', async (req: Request, res: Response, next) => {
       entries = await container.manifestEntryRepository.findByDatasetId(datasetId);
     }
 
-    if (isDev) {
-      console.log(
-        `📤 GET /api/manifest/entries - Returning ${entries.length} entries for dataset ${datasetId}`
-      );
-      entries.forEach((entry, index) => {
-        console.log(
-          `   Entry ${index + 1}: id=${entry.id}, blobId=${entry.blobId}, path=${entry.path}`
-        );
-      });
-    }
+    console.log(`📤 GET /api/manifest/entries - Returning ${entries.length} entries for dataset ${datasetId}`);
+    entries.forEach((entry: any, index: number) => {
+      console.log(`   Entry ${index + 1}: id=${entry.id}, blobId=${entry.blobId}, path=${entry.path}`);
+    });
 
     res.json({ entries });
   } catch (error: any) {

@@ -1,69 +1,39 @@
 import { IDatasetRepository } from '../../domain/repositories/IDatasetRepository';
 import { Dataset, CreateDatasetInput } from '../../domain/entities/Dataset';
-import { prisma } from '../database/PrismaClient';
+// Note: Old schema models (Dataset, ManifestEntry, VersionCommit) no longer exist
+// These repositories are kept for backward compatibility but will not work with new schema
+// TODO: Remove or migrate to new LocalRepoIndex model
 
 /**
- * Prisma implementation of IDatasetRepository
+ * @deprecated This repository uses the old schema which no longer exists.
+ * Use LocalRepoIndexRepository for Move-first architecture.
  */
 export class DatasetRepository implements IDatasetRepository {
-  async create(input: CreateDatasetInput): Promise<Dataset> {
-    const dataset = await prisma.dataset.create({
-      data: {
-        name: input.name,
-        description: input.description || null,
-      },
-    });
-
-    return this.mapToEntity(dataset);
+  async create(_input: CreateDatasetInput): Promise<Dataset> {
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async findById(id: string): Promise<Dataset | null> {
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-    });
-
-    return dataset ? this.mapToEntity(dataset) : null;
+  async findById(_id: string): Promise<Dataset | null> {
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async findByName(name: string): Promise<Dataset | null> {
-    const dataset = await prisma.dataset.findFirst({
-      where: { name },
-    });
-
-    return dataset ? this.mapToEntity(dataset) : null;
+  async findByName(_name: string): Promise<Dataset | null> {
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
   async findAll(): Promise<Dataset[]> {
-    const datasets = await prisma.dataset.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return datasets.map((d: {
-      id: string;
-      name: string;
-      description: string | null;
-      createdAt: Date;
-    }) => this.mapToEntity(d));
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  async delete(id: string): Promise<void> {
-    await prisma.dataset.delete({
-      where: { id },
-    });
+  async findByOwner(_ownerAddress: string): Promise<Dataset[]> {
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 
-  private mapToEntity(data: {
-    id: string;
-    name: string;
-    description: string | null;
-    createdAt: Date;
-  }): Dataset {
-    return {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      createdAt: data.createdAt,
-    };
+  async findByOwnerAddress(_ownerAddress: string): Promise<Dataset[]> {
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
+  }
+
+  async delete(_id: string): Promise<void> {
+    throw new Error('Dataset model no longer exists in Move-first architecture. Use LocalRepoIndexRepository instead.');
   }
 }
-

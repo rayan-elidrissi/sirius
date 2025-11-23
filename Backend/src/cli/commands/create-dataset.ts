@@ -13,9 +13,13 @@ export async function createDataset(options: CreateDatasetOptions): Promise<void
 
   try {
     const container = Container.getInstance();
+    // CLI: Use a placeholder address (in real usage, this comes from wallet)
+    const ownerAddress = process.env.SUI_ADDRESS || '0x0000000000000000000000000000000000000000000000000000000000000000';
+    
     const dataset = await container.createDatasetUseCase.execute({
       name: options.name,
       description: options.description,
+      ownerAddress,
     });
 
     console.log('✅ Dataset created successfully!');

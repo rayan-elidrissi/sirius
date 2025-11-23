@@ -15,6 +15,7 @@ export async function listVersions(options: ListVersionsOptions): Promise<void> 
     const versions = await container.listVersionsUseCase.execute({
       datasetId: options.dataset,
     });
+
     if (versions.length === 0) {
       console.log('No versions found for this dataset.');
       return;
@@ -26,6 +27,7 @@ export async function listVersions(options: ListVersionsOptions): Promise<void> 
     const versionsByRoot = new Map(versions.map((v) => [v.versionRoot, v]));
 
     versions.forEach((version, index) => {
+      // const isFirst = version.parentRoot === null; // Unused for now
       const parentExists = version.parentRoot ? versionsByRoot.has(version.parentRoot) : false;
 
       console.log(`${index + 1}. Version ${version.id}`);

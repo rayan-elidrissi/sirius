@@ -1,5 +1,6 @@
-// Prisma schema for Sirius Data Layer
-// SQLite database for local persistence
+// Prisma schema for Sirius V2 - Move-first architecture
+// SQLite database for LOCAL CACHE ONLY (not source of truth)
+// Source of truth is on Sui Move smart contracts
 
 generator client {
   provider = "prisma-client-js"
@@ -10,100 +11,74 @@ datasource db {
   url      = "file:./sirius.db"
 }
 
-// Dataset represents a collection of versioned data
-model Dataset {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
+// Local cache of repository info
+// Truth is on Sui Move Repository object
+model LocalRepoIndex {
+  id                String   @id @default(uuid())
+  repoObjectId      String   @unique // Sui object ID
+  ownerAddress      String
+  sealedRmkBlobId   String   // Walrus blob ID for sealed RMK
+  headCommitId      String?  // Cache of current head (bytes as hex)
+  meta              String?  // JSON metadata cache
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   
   // Relations
-  manifestEntries ManifestEntry[]
-  versionCommits  VersionCommit[]
+  stagedEntries     LocalManifestEntry[]
+  cachedCommits     LocalCommitCache[]
   
-  @@index([name])
+  @@index([ownerAddress])
+  @@index([repoObjectId])
 }
 
-// ManifestEntry represents a single blob reference in a dataset
-model ManifestEntry {
-  id           String   @id @default(uuid())
-  datasetId    String
-  blobId       String   // Walrus blob ID (e.g., wblb...)
-  path         String?  // Logical path/name for the blob
-  metadata     String   // JSON string containing mime type, size, checksum, etc.
-  createdAt    DateTime @default(now())
+// Local staging area for files before commit
+// Files are encrypted and uploaded to Walrus, but not yet committed on-chain
+model LocalManifestEntry {
+  id                String   @id @default(uuid())
+  repoObjectId      String
+  filename          String
+  path              String?  // Logical path
+  
+  // Encryption info
+  cipherSuite       String   // "xchacha20-poly1305" or "aes-256-gcm"
+  ciphertextBlobId  String   // Walrus blob ID for encrypted file
+  sealedKeyBlobId   String   // Walrus blob ID for sealed FileKey
+  cipherHash        String   // Hash of ciphertext (for verification)
+  nonce             String?  // Nonce for encryption (if needed)
+  
+  // Metadata
+  size              Int      // Original size
+  mimeType          String?
+  metadata          String?  // JSON metadata
+  
+  createdAt         DateTime @default(now())
   
   // Relations
-  dataset      Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
-  versionCommits VersionCommitEntry[]
+  repo              LocalRepoIndex @relation(fields: [repoObjectId], references: [repoObjectId], onDelete: Cascade)
   
-  @@index([datasetId])
-  @@index([blobId])
+  @@index([repoObjectId])
+  @@index([ciphertextBlobId])
 }
 
-// VersionCommit represents a snapshot/version of a dataset
-model VersionCommit {
-  id            String   @id @default(uuid())
-  datasetId     String
-  versionRoot   String   // Merkle root hash of the manifest
-  parentRoot    String?  // Previous version's root (null for first version)
-  signature     String   // Ed25519 signature (base64)
-  publicKey     String   // Ed25519 public key used for signing (base64)
-  author        String?  // Optional author identifier (could be Sui address)
-  note          String?  // Version note/description
-  createdAt     DateTime @default(now())
+// Local cache of commit info
+// Truth is on Sui Move Commit object
+model LocalCommitCache {
+  id                String   @id @default(uuid())
+  repoObjectId      String
+  commitObjectId    String   @unique // Sui object ID
+  parentCommitId    String?  // Parent commit ID (bytes as hex)
+  manifestBlobId    String   // Walrus blob ID for manifest JSON
+  merkleRoot        String   // Merkle root (hex)
+  author            String   // Sui address
+  timestampMs       Int      // Timestamp from Sui
   
-  // Blockchain anchoring
-  suiTxHash     String?  // Sui transaction hash (if anchored)
-  blockHeight   Int?     // Block number
-  blockTimestamp Int?    // Blockchain timestamp
-  
-  // IPFS backup
-  ipfsCID       String?  // IPFS Content ID
-  ipfsUrl       String?  // IPFS Gateway URL
-  
-  // Multi-signature
-  isMultiSig    Boolean  @default(false)
-  requiredSigs  Int      @default(1)
+  // Cache metadata
+  cachedAt          DateTime @default(now())
   
   // Relations
-  dataset       Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
-  manifestEntries VersionCommitEntry[]
-  signatures    VersionSignature[]
+  repo              LocalRepoIndex @relation(fields: [repoObjectId], references: [repoObjectId], onDelete: Cascade)
   
-  @@index([datasetId])
-  @@index([versionRoot])
-  @@index([parentRoot])
-  @@index([suiTxHash])
+  @@index([repoObjectId])
+  @@index([commitObjectId])
+  @@index([parentCommitId])
 }
-
-// Version signatures for multi-sig support
-model VersionSignature {
-  id              String   @id @default(uuid())
-  versionCommitId String
-  publicKey       String   // Signer's public key
-  signature       String   // Signature
-  signedAt        DateTime @default(now())
-  
-  // Relations
-  versionCommit   VersionCommit @relation(fields: [versionCommitId], references: [id], onDelete: Cascade)
-  
-  @@unique([versionCommitId, publicKey])
-  @@index([versionCommitId])
-}
-
-// Join table to track which manifest entries are in which version commits
-model VersionCommitEntry {
-  id              String   @id @default(uuid())
-  versionCommitId String
-  manifestEntryId String
-  
-  // Relations
-  versionCommit   VersionCommit @relation(fields: [versionCommitId], references: [id], onDelete: Cascade)
-  manifestEntry   ManifestEntry @relation(fields: [manifestEntryId], references: [id], onDelete: Cascade)
-  
-  @@unique([versionCommitId, manifestEntryId])
-  @@index([versionCommitId])
-  @@index([manifestEntryId])
-}
-

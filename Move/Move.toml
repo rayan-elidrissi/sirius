@@ -1,0 +1,15 @@
+[package]
+name = "sirius"
+version = "1.0.0"
+edition = "2024"
+
+[addresses]
+sirius = "0x84eac8cd7ae3baceebe56c1a6bc3554053860698b861ab8d12fbaeda4c0c9781"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
+
+[dev-dependencies]
+
+[dev-addresses]
+

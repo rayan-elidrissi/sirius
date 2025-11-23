@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* TheAliens Font */
+@font-face {
+  font-family: 'TheAliens';
+  src: url('./assets/fonts/TheAliens.woff2') format('woff2'),
+       url('./assets/fonts/TheAliens.woff') format('woff'),
+       url('./assets/fonts/TheAliens.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

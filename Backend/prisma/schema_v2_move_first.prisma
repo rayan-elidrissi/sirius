@@ -1,0 +1,84 @@
+// Prisma schema for Sirius V2 - Move-first architecture
+// SQLite database for LOCAL CACHE ONLY (not source of truth)
+// Source of truth is on Sui Move smart contracts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./sirius.db"
+}
+
+// Local cache of repository info
+// Truth is on Sui Move Repository object
+model LocalRepoIndex {
+  id                String   @id @default(uuid())
+  repoObjectId      String   @unique // Sui object ID
+  ownerAddress      String
+  sealedRmkBlobId   String   // Walrus blob ID for sealed RMK
+  headCommitId      String?  // Cache of current head (bytes as hex)
+  meta              String?  // JSON metadata cache
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  stagedEntries     LocalManifestEntry[]
+  cachedCommits     LocalCommitCache[]
+  
+  @@index([ownerAddress])
+  @@index([repoObjectId])
+}
+
+// Local staging area for files before commit
+// Files are encrypted and uploaded to Walrus, but not yet committed on-chain
+model LocalManifestEntry {
+  id                String   @id @default(uuid())
+  repoObjectId      String
+  filename          String
+  path              String?  // Logical path
+  
+  // Encryption info
+  cipherSuite       String   // "xchacha20-poly1305" or "aes-256-gcm"
+  ciphertextBlobId  String   // Walrus blob ID for encrypted file
+  sealedKeyBlobId   String   // Walrus blob ID for sealed FileKey
+  cipherHash        String   // Hash of ciphertext (for verification)
+  
+  // Metadata
+  size              Int      // Original size
+  mimeType          String?
+  metadata          String?  // JSON metadata
+  
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  repo              LocalRepoIndex @relation(fields: [repoObjectId], references: [repoObjectId], onDelete: Cascade)
+  
+  @@index([repoObjectId])
+  @@index([ciphertextBlobId])
+}
+
+// Local cache of commit info
+// Truth is on Sui Move Commit object
+model LocalCommitCache {
+  id                String   @id @default(uuid())
+  repoObjectId      String
+  commitObjectId    String   @unique // Sui object ID
+  parentCommitId    String?  // Parent commit ID (bytes as hex)
+  manifestBlobId    String   // Walrus blob ID for manifest JSON
+  merkleRoot        String   // Merkle root (hex)
+  author            String   // Sui address
+  timestampMs       Int      // Timestamp from Sui
+  
+  // Cache metadata
+  cachedAt          DateTime @default(now())
+  
+  // Relations
+  repo              LocalRepoIndex @relation(fields: [repoObjectId], references: [repoObjectId], onDelete: Cascade)
+  
+  @@index([repoObjectId])
+  @@index([commitObjectId])
+  @@index([parentCommitId])
+}
+

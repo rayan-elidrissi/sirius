@@ -7,9 +7,11 @@ interface FilesListProps {
   projectId: string;
   files: ManifestEntry[];
   onFileDeleted?: () => void;
+  repoObjectId?: string; // For manifest JSON display
+  authorAddress?: string; // For manifest JSON display
 }
 
-export default function FilesList({ projectId, files, onFileDeleted }: FilesListProps) {
+export default function FilesList({ projectId, files, onFileDeleted, repoObjectId, authorAddress }: FilesListProps) {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [viewingIds, setViewingIds] = useState<Set<string>>(new Set());
   const [expandedFileId, setExpandedFileId] = useState<string | null>(null);
@@ -165,7 +167,7 @@ export default function FilesList({ projectId, files, onFileDeleted }: FilesList
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <span className="text-3xl">{getFileIcon(file.mimeType)}</span>
+                  <span className="text-3xl">{getFileIcon(file.mimeType || 'application/octet-stream')}</span>
 
                   <div className="flex-1">
                     <div className="text-white font-semibold mb-1">
@@ -173,9 +175,13 @@ export default function FilesList({ projectId, files, onFileDeleted }: FilesList
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-gray-400">
-                      <span>{formatFileSize(file.size)}</span>
-                      <span>•</span>
-                      <span className="font-mono text-xs">{file.blobId.slice(0, 20)}...</span>
+                      <span>{formatFileSize(file.size || 0)}</span>
+                      {file.blobId && (
+                        <>
+                          <span>•</span>
+                          <span className="font-mono text-xs">{file.blobId.slice(0, 20)}...</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -328,6 +334,36 @@ export default function FilesList({ projectId, files, onFileDeleted }: FilesList
                         </div>
                       </div>
                     )}
+                    
+                    {/* Manifest JSON Section */}
+                    <div className="pt-2 border-t border-[#334155]">
+                      <span className="text-gray-400">Manifest Output:</span>
+                      <div className="bg-[#0a0f1a] border border-[#334155] rounded-lg p-3 mt-2 max-h-96 overflow-y-auto">
+                        <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap break-words">
+                          {JSON.stringify({
+                            // For staged files, manifestBlobId is null (not committed yet)
+                            manifestBlobId: file.isCommitted ? 'committed' : null,
+                            manifestJson: 'Will be generated on commit',
+                            merkleRoot: 'Will be calculated on commit',
+                            stagedEntries: [
+                              {
+                                ciphertextBlobId: file.metadata?.ciphertextBlobId || file.blobId,
+                                sealedKeyBlobId: file.metadata?.sealedKeyBlobId || 'N/A',
+                                cipherHash: file.metadata?.cipherHash || 'N/A',
+                                filename: file.filename || file.path || 'Untitled',
+                                path: file.path || file.filename || null,
+                                size: file.size || 0,
+                                mimeType: file.mimeType || 'application/octet-stream',
+                                cipherSuite: file.metadata?.cipherSuite || 'xchacha20-poly1305',
+                              }
+                            ],
+                            repoObjectId: repoObjectId || projectId,
+                            authorAddress: authorAddress || 'N/A',
+                            parentCommitId: null, // Would be set on commit
+                          }, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-gray-400 text-sm">No information available</div>

@@ -77,10 +77,14 @@ export default function WalletInfo() {
 
             <button
               onClick={() => {
-                disconnect();
                 setShowDropdown(false);
-                // Redirect to Sirius landing page (connect wallet page)
-                navigate('/sirius');
+                // Disconnect first (synchronous call)
+                disconnect();
+                // Force redirect to Sirius landing page (connect wallet page)
+                // Use window.location to ensure navigation happens immediately
+                setTimeout(() => {
+                  window.location.href = '/sirius';
+                }, 100);
               }}
               className="w-full px-4 py-3 text-left text-red-400 hover:bg-[#0f172a] transition-colors flex items-center gap-2"
             >

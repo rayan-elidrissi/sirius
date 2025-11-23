@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 interface FileUploaderProps {
   projectId: string;
@@ -8,6 +9,7 @@ interface FileUploaderProps {
 }
 
 export default function FileUploader({ projectId, onFilesUploaded }: FileUploaderProps) {
+  const { address } = useAuthStore();
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -30,33 +32,29 @@ export default function FileUploader({ projectId, onFilesUploaded }: FileUploade
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
 
+    if (!address) {
+      toast.error('Wallet must be connected to upload files');
+      return;
+    }
+
     setUploading(true);
-    toast.loading(`Uploading ${files.length} file(s) to Walrus...`);
+    toast.loading(`Uploading ${files.length} file(s)...`);
 
     try {
-      const manifestEntries = [];
+      let successCount = 0;
+      let failCount = 0;
 
-      // Upload each file to Walrus
+      // Upload each file to repository (Walrus + manifest entry in one call)
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
 
         try {
-          // Upload to Walrus
-          const walrusResult = await api.uploadToWalrus(file);
+          // Upload file to repo (this handles Walrus upload + manifest entry creation)
+          await api.uploadFileToRepo(projectId, file, address);
           
           setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
-
-          // Add to manifest entries
-          manifestEntries.push({
-            blobId: walrusResult.blobId,
-            path: file.name,
-            metadata: {
-              mimeType: file.type || 'application/octet-stream',
-              size: file.size,
-              uploadLogs: walrusResult.logs || [], // Store upload logs
-            },
-          });
+          successCount++;
         } catch (error: any) {
           console.error(`Failed to upload ${file.name}:`, error);
           const errorMessage = error.message || 'Unknown error';
@@ -70,18 +68,20 @@ export default function FileUploader({ projectId, onFilesUploaded }: FileUploade
           } else {
             toast.error(`Failed to upload ${file.name}: ${errorMessage}`, { duration: 5000 });
           }
+          failCount++;
         }
       }
 
-      if (manifestEntries.length === 0) {
+      if (successCount === 0) {
         throw new Error('No files were successfully uploaded');
       }
 
-      // Add manifest entries to dataset
-      await api.addManifestEntries(projectId, manifestEntries);
-
       toast.dismiss();
-      toast.success(`Successfully uploaded ${manifestEntries.length} file(s)!`);
+      if (failCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} file(s)! ${failCount} failed.`);
+      } else {
+        toast.success(`Successfully uploaded ${successCount} file(s)!`);
+      }
       onFilesUploaded?.();
     } catch (error: any) {
       toast.dismiss();

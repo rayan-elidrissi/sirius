@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { useWallet } from '../../hooks/useWallet';
 import { useManifestEntries } from '../../hooks/useProjects';
 import { api } from '../../services/api';
@@ -12,20 +13,23 @@ interface CreateVersionModalProps {
 
 export default function CreateVersionModal({ projectId, onVersionCreated }: CreateVersionModalProps) {
   const { isCreateVersionModalOpen, closeCreateVersionModal } = useUIStore();
+  const authStore = useAuthStore();
   const { signMessage, isSigning, address } = useWallet();
   const { entries: uncommittedFiles } = useManifestEntries(projectId, true);
 
   const [note, setNote] = useState('');
-  const [enableBlockchain, setEnableBlockchain] = useState(true);
-  const [enableIPFS, setEnableIPFS] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [createdVersion, setCreatedVersion] = useState<any>(null);
+  const [signatureConfirmed, setSignatureConfirmed] = useState(false);
+  const [signatureData, setSignatureData] = useState<{signature: string; publicKey: string} | null>(null);
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isCreateVersionModalOpen) {
       setCreatedVersion(null);
       setNote('');
+      setSignatureConfirmed(false);
+      setSignatureData(null);
     }
   }, [isCreateVersionModalOpen]);
 
@@ -54,21 +58,29 @@ export default function CreateVersionModal({ projectId, onVersionCreated }: Crea
 
     try {
       // Step 1: Prepare commit data (call backend)
-      // Backend expects a datasetId; in the UI this is the projectId
       toast.loading('Preparing commit...');
-      const prepareResult = await api.prepareCommit({
-        datasetId: projectId,
+      const prepareResult = await api.prepareCommit({ 
+        datasetId: projectId, // projectId is the datasetId
         includeAllEntries: false, // Only uncommitted files
       });
 
       toast.dismiss();
-      toast.loading('Please sign in your wallet...', { duration: 10000 });
+      toast.loading('Please approve the signature in your wallet...', { duration: 15000 });
       
       // Step 2: Sign with wallet
       const signResult = await signMessage(prepareResult.message);
-
+      
+      // Store signature data and confirm
+      setSignatureData(signResult);
+      setSignatureConfirmed(true);
+      
       toast.dismiss();
-      toast.loading('Creating version...');
+      toast.success('✅ Signature confirmed!', { duration: 2000 });
+      
+      // Small delay to show confirmation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.loading('Creating version...', { duration: 10000 });
 
       // Step 3: Create version with signature
       const versionResult = await api.createVersion({
@@ -77,8 +89,6 @@ export default function CreateVersionModal({ projectId, onVersionCreated }: Crea
         publicKey: signResult.publicKey,
         author: address,
         note: note || undefined,
-        enableBlockchainAnchor: enableBlockchain,
-        enableIPFSBackup: enableIPFS,
       });
 
       toast.dismiss();
@@ -179,74 +189,31 @@ export default function CreateVersionModal({ projectId, onVersionCreated }: Crea
               />
             </div>
 
-            {/* Options */}
-            <div>
-              <label className="block text-white font-semibold mb-3">
-                Options
-              </label>
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableBlockchain}
-                    onChange={(e) => setEnableBlockchain(e.target.checked)}
-                    className="mt-1"
-                  />
-                  <div>
-                    <div className="text-white font-medium">Blockchain Anchoring</div>
-                    <div className="text-gray-400 text-sm">
-                      Anchor on Sui blockchain for immutable timestamp (~$0.002)
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableIPFS}
-                    onChange={(e) => setEnableIPFS(e.target.checked)}
-                    className="mt-1"
-                  />
-                  <div>
-                    <div className="text-white font-medium">IPFS Backup</div>
-                    <div className="text-gray-400 text-sm">
-                      Automatic backup to IPFS (decentralized, free)
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* What Happens */}
-            <div className="bg-[#0f172a] border border-[#334155] rounded-lg p-4">
-              <div className="text-white font-semibold mb-3">What will happen:</div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-300">
-                  <div className="text-[#97F0E5]">1.</div>
-                  <span>Merkle Root computed (cryptographic fingerprint)</span>
+            {/* Signature Confirmation */}
+            {signatureConfirmed && signatureData && (
+              <div className="bg-[#0f172a] border border-[#97F0E5] rounded-lg p-4 space-y-3 animate-pulse">
+                <div className="text-[#97F0E5] font-semibold flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Signature Confirmed by {authStore.walletName || 'Wallet'}
                 </div>
-                <div className="flex items-center gap-2 text-gray-300">
-                  <div className="text-[#97F0E5]">2.</div>
-                  <span>Your wallet will request signature</span>
-                </div>
-                {enableBlockchain && (
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <div className="text-[#97F0E5]">3.</div>
-                    <span>Anchored on Sui blockchain</span>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Signature:</span>
+                    <span className="text-white font-mono text-xs break-all">{signatureData.signature.slice(0, 32)}...</span>
                   </div>
-                )}
-                {enableIPFS && (
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <div className="text-[#97F0E5]">{enableBlockchain ? '4' : '3'}.</div>
-                    <span>Backed up to IPFS</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Public Key:</span>
+                    <span className="text-white font-mono text-xs break-all">{signatureData.publicKey.slice(0, 32)}...</span>
                   </div>
-                )}
-                <div className="flex items-center gap-2 text-gray-300">
-                  <div className="text-[#97F0E5]">✓</div>
-                  <span>Immutable, verifiable version created</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Address:</span>
+                    <span className="text-white font-mono text-xs">{address.slice(0, 16)}...</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Success State */}
             {createdVersion && (
