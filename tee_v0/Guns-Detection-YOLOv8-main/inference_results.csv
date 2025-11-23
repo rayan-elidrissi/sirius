@@ -1,0 +1,3 @@
+image_path,class_id,class_name,confidence,x1,y1,x2,y2
+C:\Users\re234371\Desktop\hackathon_Walrus_ARA-data_layer_ali\TEE_substitute\Guns-Detection-YOLOv8-main\bad_gun.jpg,0,gun,0.685174286365509,8.976997375488281,25.76349639892578,512.4239501953125,336.1518249511719
+C:\Users\re234371\Desktop\hackathon_Walrus_ARA-data_layer_ali\TEE_substitute\Guns-Detection-YOLOv8-main\bad_gun.jpg,0,gun,0.685174286365509,8.976997375488281,25.76349639892578,512.4239501953125,336.1518249511719
