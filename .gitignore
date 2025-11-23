@@ -88,3 +88,30 @@ logo_metamask.png
 logo_phantom.png
 logo_slush.png
 
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+**/venv/
+**/env/
+
+# TEE build artifacts and large files
+tee_v0/venv/
+tee_v0/Guns-Detection-YOLOv8-main/runs/
+tee_v0/Guns-Detection-YOLOv8-main/yolov8n.pt
+tee_v0/Guns-Detection-YOLOv8-main/*.pt
+tee_v1/target/
+tee_v1/*.onnx
+tee_v1/*.pt
+
+# Demo videos
+*.mp4
+*.mov
+*.avi
+
+# Documentation (keep only root README.md)
+**/README.md
+!README.md
+**/*.md
+!README.md

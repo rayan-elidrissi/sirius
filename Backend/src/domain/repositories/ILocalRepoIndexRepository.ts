@@ -63,6 +63,16 @@ export interface ILocalRepoIndexRepository {
   clearStagedEntries(repoObjectId: string): Promise<void>;
 
   /**
+   * Remove a specific staged entry by ID
+   */
+  removeStagedEntry(entryId: string): Promise<void>;
+
+  /**
+   * Update metadata of a staged entry (e.g., to store TEE verification results)
+   */
+  updateStagedEntryMetadata(entryId: string, metadata: any): Promise<void>;
+
+  /**
    * Cache a commit
    */
   cacheCommit(input: CacheCommitInput): Promise<LocalCommitCache>;
@@ -76,5 +86,10 @@ export interface ILocalRepoIndexRepository {
    * Update repo head (cache)
    */
   updateHead(repoObjectId: string, headCommitId: string): Promise<void>;
+
+  /**
+   * Get all cached commits for a repository (ordered by timestamp desc)
+   */
+  getCachedCommits(repoObjectId: string): Promise<LocalCommitCache[]>;
 }
 

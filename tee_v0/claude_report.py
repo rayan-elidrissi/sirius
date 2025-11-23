@@ -101,11 +101,18 @@ def clean_markdown_fences(raw: str) -> str:
 
 
 def main() -> None:
+    import sys
+    
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise SystemExit("ANTHROPIC_API_KEY environment variable is not set")
 
-    image_path = Path(__file__).parent / "bad_gun.jpg"
+    # Accept file path as command line argument, or use default
+    if len(sys.argv) > 1:
+        image_path = Path(sys.argv[1])
+    else:
+        image_path = Path(__file__).parent / "bad_gun.jpg"
+    
     if not image_path.exists():
         raise SystemExit(f"Image not found: {image_path}")
 

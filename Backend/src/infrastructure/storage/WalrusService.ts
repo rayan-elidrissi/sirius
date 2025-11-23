@@ -262,9 +262,30 @@ export class WalrusService implements IWalrusService {
       addLog(`   File path (WSL): ${walrusPath}`);
       addLog(`   Network: ${this.network.toUpperCase()}`);
       
-      const { stdout, stderr } = await execAsync(command, {
-        timeout: 120000, // 2 minutes timeout for large files
-      });
+      let stdout: string;
+      let stderr: string;
+      
+      try {
+        const result = await execAsync(command, {
+          timeout: 120000, // 2 minutes timeout for large files
+        });
+        stdout = result.stdout;
+        stderr = result.stderr;
+      } catch (execError: any) {
+        // execAsync throws an error if the command exits with non-zero code
+        stdout = execError.stdout || '';
+        stderr = execError.stderr || execError.message || '';
+        
+        // Check for WAL coins error specifically
+        const errorOutput = (stdout + ' ' + stderr).toLowerCase();
+        if (errorOutput.includes('wal coins') || errorOutput.includes('sufficient balance') || errorOutput.includes('could not find wal coins')) {
+          const errorMsg = stderr.match(/Error:.*/)?.[0] || stdout.match(/Error:.*/)?.[0] || 'Insufficient WAL coins balance';
+          throw new Error(`Insufficient WAL coins: Your Sui wallet does not have enough WAL tokens to store blobs on Walrus testnet. Please fund your wallet with WAL coins. ${errorMsg}`);
+        }
+        
+        // Re-throw with more context
+        throw new Error(`Walrus CLI command failed: ${stderr || execError.message || 'Unknown error'}`);
+      }
 
       // Log full output for debugging - CRITICAL for troubleshooting
       addLog('\n=== WALRUS STORE OUTPUT ===');
@@ -276,17 +297,29 @@ export class WalrusService implements IWalrusService {
       addLog(`STDERR length: ${stderr.length}`);
       addLog('==========================\n');
 
-      // Check for errors - stderr might contain warnings, but errors are critical
+      // Check for errors in output FIRST - before trying to parse blob ID
+      // stderr might contain warnings, but errors are critical
+      const combinedOutput = (stdout + ' ' + stderr).toLowerCase();
+      
+      // Check for WAL coins error specifically (most common issue)
+      if (combinedOutput.includes('wal coins') || 
+          combinedOutput.includes('sufficient balance') || 
+          combinedOutput.includes('could not find wal coins') ||
+          combinedOutput.includes('insufficient')) {
+        const errorMsg = stderr.match(/Error:.*/)?.[0] || 
+                        stdout.match(/Error:.*/)?.[0] || 
+                        stderr.match(/could not find.*/i)?.[0] ||
+                        'Insufficient WAL coins balance';
+        throw new Error(`Insufficient WAL coins: Your Sui wallet does not have enough WAL tokens to store blobs on Walrus testnet. Please fund your wallet with WAL coins. To get WAL coins, visit the Walrus faucet or exchange. Error details: ${errorMsg}`);
+      }
+      
+      // Check for other errors
       if (stderr) {
         const hasError = stderr.toLowerCase().includes('error') || 
                         stderr.toLowerCase().includes('failed') ||
                         stderr.toLowerCase().includes('not found') ||
                         stderr.toLowerCase().includes('cannot');
         if (hasError && !stderr.toLowerCase().includes('success')) {
-          // Check for specific error types
-          if (stderr.toLowerCase().includes('wal coins') || stderr.toLowerCase().includes('sufficient balance')) {
-            throw new Error(`Walrus upload failed: Insufficient WAL coins balance. You need WAL tokens to store blobs on Walrus testnet. Please fund your Sui wallet with WAL coins. Error: ${stderr.match(/Error:.*/)?.[0] || stderr.substring(0, 200)}`);
-          }
           throw new Error(`Walrus upload failed: ${stderr}`);
         }
       }
@@ -375,6 +408,24 @@ export class WalrusService implements IWalrusService {
         logs,
       };
     } catch (error: any) {
+      // Check for WAL coins error in the error message/stderr
+      const errorMessage = (error.message || '').toLowerCase();
+      const errorStderr = (error.stderr || '').toLowerCase();
+      const errorStdout = (error.stdout || '').toLowerCase();
+      const combinedError = (errorMessage + ' ' + errorStderr + ' ' + errorStdout).toLowerCase();
+      
+      if (combinedError.includes('wal coins') || 
+          combinedError.includes('sufficient balance') || 
+          combinedError.includes('could not find wal coins') ||
+          combinedError.includes('insufficient')) {
+        const errorMsg = error.stderr?.match(/Error:.*/)?.[0] || 
+                        error.stdout?.match(/Error:.*/)?.[0] || 
+                        error.stderr?.match(/could not find.*/i)?.[0] ||
+                        error.message ||
+                        'Insufficient WAL coins balance';
+        throw new Error(`Insufficient WAL coins: Your Sui wallet does not have enough WAL tokens to store blobs on Walrus testnet. Please fund your wallet with WAL coins. To get WAL coins, visit the Walrus faucet or exchange. Error details: ${errorMsg}`);
+      }
+      
       // DO NOT fallback to demo mode if CLI is available - this is a real error
       if (error.code === 'ENOENT' || error.message.includes('n\'est pas reconnu') || error.message.includes('not found')) {
         // Only fallback if CLI is truly not found
@@ -610,26 +661,49 @@ export class WalrusService implements IWalrusService {
 
     // Real Walrus CLI mode
     try {
-      // Execute: walrus burn-blobs --object-ids <blobId> (via WSL on Windows)
-      // Note: Network is configured globally in Walrus, not per command
-      // According to Walrus docs: walrus burn-blobs --object-ids <OBJ_ID>
-      // Note: We need the object ID, not the blob ID. Let's try both formats.
-      // First, try with blob ID directly
-      let command = this.getWalrusCommand(`walrus burn-blobs --object-ids "${blobId}"`);
+      // Note: walrus status doesn't exist, so we need to get ObjectID from the blob metadata
+      // The ObjectID is stored in the cache when the blob is uploaded
+      // For now, we'll try to use walrus read with --metadata flag, or use the blobId directly if it's an ObjectID
+      console.log(`[Walrus] Attempting to burn blob: ${blobId}`);
+      
+      let objectId: string | null = null;
+      
+      // If blobId is already an ObjectID (starts with 0x), use it directly
+      if (blobId.startsWith('0x')) {
+        objectId = blobId;
+        console.log(`[Walrus] Using blobId as ObjectID: ${objectId}`);
+      } else {
+        // Try to get ObjectID from walrus read output (it might contain metadata)
+        // Note: This is a workaround - ideally ObjectID should be stored in cache during upload
+        try {
+          const tempFile = require('os').tmpdir() + '/' + require('crypto').randomBytes(8).toString('hex');
+          const readCommand = this.getWalrusCommand(`walrus read "${blobId}" --out "${this.useWSL ? this.convertToWSLPath(tempFile) : tempFile}"`);
+          const { stdout: readStdout, stderr: readStderr } = await execAsync(readCommand, {
+            timeout: 30000,
+          });
+          
+          // Parse ObjectID from read output (if available)
+          const output = readStdout || readStderr || '';
+          const objectIdMatch = output.match(/Sui object ID:\s*(0x[a-fA-F0-9]+)/i);
+          if (objectIdMatch) {
+            objectId = objectIdMatch[1];
+            console.log(`[Walrus] Found ObjectID from read output: ${objectId}`);
+          }
+        } catch (readError: any) {
+          console.warn(`[Walrus] Could not get ObjectID from read: ${readError.message}`);
+        }
+        
+        // If still no ObjectID, we can't burn the blob
+        if (!objectId) {
+          throw new Error(`Could not determine ObjectID for blob ${blobId}. The ObjectID should be stored in cache during upload. For now, only blobs with ObjectID format (0x...) can be burned.`);
+        }
+      }
+
+      // Now burn using ObjectID
+      let command = this.getWalrusCommand(`walrus burn-blobs --object-ids "${objectId}"`);
       let { stdout, stderr } = await execAsync(command, {
         timeout: 30000, // 30 seconds timeout
       });
-
-      // If that fails, try alternative command format
-      if (stderr && stderr.toLowerCase().includes('error')) {
-        console.log(`[Walrus] Trying alternative burn command...`);
-        // Try: walrus delete --blob-id (if that's the correct format)
-        // Note: Network is configured globally in Walrus, not per command
-        command = this.getWalrusCommand(`walrus delete --blob-id "${blobId}"`);
-        const result = await execAsync(command, { timeout: 30000 });
-        stdout = result.stdout;
-        stderr = result.stderr;
-      }
 
       console.log(`[Walrus] burn output for ${blobId}:`, stdout);
       if (stderr) {

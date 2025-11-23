@@ -241,16 +241,33 @@ export class SuiChainService implements ISuiChainService {
     
     const tx = new Transaction();
     
+    // IMPORTANT: Get current head from repository using view function to ensure accuracy
+    const currentHeadHex = await this.getHeadCommitId(params.repoObjectId);
+    
     // Convert parent commit ID (hex string) to vector<u8>
-    const parentBytes = params.parentCommitId 
-      ? Buffer.from(params.parentCommitId, 'hex')
-      : Buffer.alloc(0);
+    // ALWAYS use the current head from the repository, not the passed parentCommitId
+    // This ensures we never have a fork error
+    let parentBytes: Buffer;
+    if (currentHeadHex && currentHeadHex.length > 0) {
+      // Repository has a head - use it as parent
+      parentBytes = Buffer.from(currentHeadHex, 'hex');
+      console.log(`[SuiChainService] Repository has head: ${currentHeadHex.substring(0, 40)}... (${parentBytes.length} bytes)`);
+      if (params.parentCommitId && params.parentCommitId !== currentHeadHex) {
+        console.warn(`[SuiChainService] ⚠️ WARNING: Passed parentCommitId (${params.parentCommitId.substring(0, 20)}...) does not match current head. Using current head instead.`);
+      }
+    } else {
+      // First commit: parent is empty
+      parentBytes = Buffer.alloc(0);
+      console.log(`[SuiChainService] ✅ First commit - parent is empty`);
+    }
     
     // Convert manifest blob ID to vector<u8>
     const manifestBlobIdBytes = Buffer.from(params.manifestBlobId, 'utf-8');
     
     // Convert merkle root (hex string) to vector<u8>
     const merkleRootBytes = Buffer.from(params.merkleRoot, 'hex');
+    
+    console.log(`[SuiChainService] Parent bytes length: ${parentBytes.length}, Current head: ${currentHeadHex || 'null'}`);
     
     // Get repository object
     const target = `${this.packageId}::repository::push_commit`;
@@ -329,18 +346,25 @@ export class SuiChainService implements ISuiChainService {
    */
   async executePushCommit(params: ExecuteTransactionParams & { repoObjectId: string; parentCommitId: string | null; manifestBlobId: string; merkleRoot: string }): Promise<PushCommitResult> {
     console.log(`[SuiChainService] Executing signed push_commit transaction`);
+    console.log(`[SuiChainService] Signer address: ${params.signerAddress}`);
+    console.log(`[SuiChainService] Transaction bytes length: ${params.transactionBytes.length}`);
+    console.log(`[SuiChainService] Signature length: ${params.signature.length}`);
     
-    // The frontend sends the signed transaction bytes (transaction + signature combined)
-    // Deserialize the signed transaction bytes
+    // The frontend sends transactionBlockBytes (signed transaction) and signature separately
+    // For Slush wallet, transactionBlockBytes is already a complete signed transaction
+    // However, the SDK requires signature to be passed, so we pass it
+    // The SDK should handle the case where transactionBlock is already signed
     const signedTxBytes = Buffer.from(params.transactionBytes, 'base64');
     
+    // Log transaction details for debugging
+    console.log(`[SuiChainService] Signed transaction bytes size: ${signedTxBytes.length} bytes`);
+    console.log(`[SuiChainService] First 100 bytes (hex): ${signedTxBytes.slice(0, 100).toString('hex')}`);
+    
     // Execute the signed transaction
-    // If transactionBytes already contains the signature (signed transaction), we pass it as-is
-    // Otherwise, we need to pass signature separately
-    // For now, we assume the frontend sends signed transaction bytes, so we pass signature as base64 string
+    // Pass both transactionBlock and signature - SDK will handle it correctly
     const result = await this.client.executeTransactionBlock({
       transactionBlock: signedTxBytes,
-      signature: params.signature, // Pass signature as base64 string (API expects string | string[])
+      signature: params.signature, // Required by SDK, even if transactionBlock is already signed
       options: {
         showEffects: true,
         showObjectChanges: true,
@@ -493,21 +517,70 @@ export class SuiChainService implements ISuiChainService {
     const owner = content.owner as string;
     const writers = (content.writers as string[]) || [];
     const readers = (content.readers as string[]) || [];
-    const head = content.head as { type: string; fields?: { data?: string[] } };
-    const sealedRmkBlobId = content.sealed_rmk_blob_id as { type: string; fields?: { data?: string[] } };
+    const head = content.head;
+    const sealedRmkBlobId = content.sealed_rmk_blob_id;
     const createdAtMs = Number(content.created_at_ms) || 0;
     
     // Convert head from Move vector<u8> to hex string
+    // Sui returns vector<u8> as either:
+    // 1. Direct array of numbers: [28, 169, 7, ...]
+    // 2. Object with fields.data: { fields: { data: [28, 169, 7, ...] } }
     let headCommitId: string | null = null;
-    if (head?.fields?.data && head.fields.data.length > 0) {
-      const headBytes = Uint8Array.from(head.fields.data);
+    console.log(`[SuiChainService] Raw head field:`, JSON.stringify(head, null, 2));
+    console.log(`[SuiChainService] Head type: ${typeof head}, isArray: ${Array.isArray(head)}, length: ${Array.isArray(head) ? head.length : 'N/A'}`);
+    
+    let headBytes: Uint8Array | null = null;
+    
+    // Try to parse head in multiple formats
+    if (Array.isArray(head) && head.length > 0) {
+      // Direct array format: [28, 169, 7, ...]
+      console.log(`[SuiChainService] Parsing head as direct array (${head.length} elements)`);
+      headBytes = Uint8Array.from(head);
+    } else if (head && typeof head === 'object' && head.fields?.data && Array.isArray(head.fields.data) && head.fields.data.length > 0) {
+      // Object with fields.data format: { fields: { data: [28, 169, 7, ...] } }
+      console.log(`[SuiChainService] Parsing head as object with fields.data (${head.fields.data.length} elements)`);
+      headBytes = Uint8Array.from(head.fields.data);
+    } else if (typeof head === 'string' && head.length > 0) {
+      // String format (shouldn't happen, but just in case)
+      console.log(`[SuiChainService] Head is a string, trying to parse as hex`);
+      try {
+        headBytes = Buffer.from(head, 'hex');
+      } catch (e) {
+        console.warn(`[SuiChainService] Failed to parse head as hex string: ${e}`);
+      }
+    } else if (head && typeof head === 'object' && !Array.isArray(head)) {
+      // Try to find data in various possible locations
+      console.log(`[SuiChainService] Head is an object, inspecting structure:`, Object.keys(head));
+      if (head.data && Array.isArray(head.data)) {
+        console.log(`[SuiChainService] Found head.data array (${head.data.length} elements)`);
+        headBytes = Uint8Array.from(head.data);
+      } else if (head.bytes && Array.isArray(head.bytes)) {
+        console.log(`[SuiChainService] Found head.bytes array (${head.bytes.length} elements)`);
+        headBytes = Uint8Array.from(head.bytes);
+      }
+    }
+    
+    if (!headBytes) {
+      console.log(`[SuiChainService] ❌ Head format not recognized. Type: ${typeof head}, isArray: ${Array.isArray(head)}, value: ${JSON.stringify(head).substring(0, 200)}`);
+    }
+    
+    if (headBytes && headBytes.length > 0) {
       headCommitId = Buffer.from(headBytes).toString('hex');
+      console.log(`[SuiChainService] ✅ Head parsed successfully: ${headBytes.length} bytes, hex: ${headCommitId.substring(0, 40)}...`);
+    } else {
+      console.log(`[SuiChainService] ❌ Head is empty or null (headBytes: ${headBytes ? headBytes.length : 'null'})`);
     }
     
     // Convert sealedRmkBlobId from Move vector<u8> to string
+    // Sui returns vector<u8> as either direct array or object with fields.data
     let sealedRmkBlobIdStr = '';
-    if (sealedRmkBlobId?.fields?.data && sealedRmkBlobId.fields.data.length > 0) {
-      const blobIdBytes = Uint8Array.from(sealedRmkBlobId.fields.data);
+    let blobIdBytes: Uint8Array | null = null;
+    if (Array.isArray(sealedRmkBlobId) && sealedRmkBlobId.length > 0) {
+      blobIdBytes = Uint8Array.from(sealedRmkBlobId);
+    } else if (sealedRmkBlobId?.fields?.data && Array.isArray(sealedRmkBlobId.fields.data) && sealedRmkBlobId.fields.data.length > 0) {
+      blobIdBytes = Uint8Array.from(sealedRmkBlobId.fields.data);
+    }
+    if (blobIdBytes && blobIdBytes.length > 0) {
       sealedRmkBlobIdStr = Buffer.from(blobIdBytes).toString('utf-8');
     }
     
@@ -582,10 +655,26 @@ export class SuiChainService implements ISuiChainService {
     };
   }
 
+  /**
+   * Get all commits for a repository
+   * For now, returns empty array - commits are retrieved from cache
+   * This method can be enhanced later to query Sui directly if needed
+   */
+  async getCommitsForRepository(repoObjectId: string): Promise<CommitInfo[]> {
+    console.log(`[SuiChainService] Getting commits for repository: ${repoObjectId}`);
+    // For now, return empty array - commits are retrieved from local cache
+    // The cache is updated when commits are created, so it should be up-to-date
+    // If we need to query Sui directly, we can implement queryObjects here
+    console.log(`[SuiChainService] Using cache for commits (implement Sui query if needed)`);
+    return [];
+  }
+
   async getHeadCommitId(repoObjectId: string): Promise<string | null> {
     console.log(`[SuiChainService] Getting head commit ID for repo: ${repoObjectId}`);
     
+    // Use getRepositoryInfo which correctly parses the head field
     const repoInfo = await this.getRepositoryInfo(repoObjectId);
+    console.log(`[SuiChainService] Head commit ID: ${repoInfo.headCommitId || 'null (empty - first commit)'}`);
     return repoInfo.headCommitId;
   }
 

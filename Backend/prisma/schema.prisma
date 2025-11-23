@@ -70,7 +70,7 @@ model LocalCommitCache {
   manifestBlobId    String   // Walrus blob ID for manifest JSON
   merkleRoot        String   // Merkle root (hex)
   author            String   // Sui address
-  timestampMs       Int      // Timestamp from Sui
+  timestampMs       BigInt   // Timestamp from Sui (milliseconds)
   
   // Cache metadata
   cachedAt          DateTime @default(now())

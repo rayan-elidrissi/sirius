@@ -32,7 +32,7 @@ export default function VersionsList({ projectId, versions }: VersionsListProps)
             <div key={version.id} className="flex items-center gap-3 flex-shrink-0">
               <div className="bg-[#97F0E5]/10 border-2 border-[#97F0E5] rounded-lg px-4 py-2 min-w-[120px]">
                 <div className="text-[#97F0E5] font-semibold text-sm">V{index + 1}</div>
-                <div className="text-gray-400 text-xs font-mono">{version.versionRoot.slice(0, 8)}...</div>
+                <div className="text-gray-400 text-xs font-mono">{(version.versionRoot || version.merkleRoot || '').slice(0, 8)}...</div>
               </div>
               {index < versions.length - 1 && (
                 <svg className="w-6 h-6 text-[#97F0E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,33 +79,38 @@ export default function VersionsList({ projectId, versions }: VersionsListProps)
             <div>
               <div className="text-gray-400 text-xs mb-1">Merkle Root</div>
               <div className="text-white font-mono text-sm break-all">
-                {version.versionRoot.slice(0, 32)}...
+                {(version.merkleRoot || version.versionRoot || '').slice(0, 32)}...
               </div>
             </div>
 
-            {version.parentRoot && (
+            {(version.parentCommitId || version.parentRoot) && (
               <div>
-                <div className="text-gray-400 text-xs mb-1">Parent Version</div>
+                <div className="text-gray-400 text-xs mb-1">Parent Commit</div>
                 <div className="text-white font-mono text-sm break-all">
-                  {version.parentRoot.slice(0, 32)}...
+                  {(version.parentCommitId || version.parentRoot || '').slice(0, 32)}...
                 </div>
               </div>
             )}
 
-            {version.suiTxHash && (
+            {version.suiscanUrl && (
               <div>
-                <div className="text-gray-400 text-xs mb-1">Blockchain Tx</div>
-                <div className="text-[#97F0E5] font-mono text-sm break-all">
-                  {version.suiTxHash.slice(0, 32)}...
-                </div>
+                <div className="text-gray-400 text-xs mb-1">View on SuiScan</div>
+                <a
+                  href={version.suiscanUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#97F0E5] hover:text-[#60D5E8] font-mono text-sm break-all underline"
+                >
+                  {version.commitObjectId?.slice(0, 20)}...
+                </a>
               </div>
             )}
 
-            {version.ipfsCID && (
+            {version.transactionHash && (
               <div>
-                <div className="text-gray-400 text-xs mb-1">IPFS Backup</div>
+                <div className="text-gray-400 text-xs mb-1">Transaction Hash</div>
                 <div className="text-[#97F0E5] font-mono text-sm break-all">
-                  {version.ipfsCID.slice(0, 32)}...
+                  {version.transactionHash.slice(0, 32)}...
                 </div>
               </div>
             )}
@@ -121,34 +126,30 @@ export default function VersionsList({ projectId, versions }: VersionsListProps)
 
           {/* Stats */}
           <div className="flex items-center gap-6 text-sm text-gray-400 mb-4">
-            <span>{version.fileCount} files</span>
-            <span>•</span>
             <span>Created by {version.author?.slice(0, 8)}...</span>
+            {version.createdAt && (
+              <>
+                <span>•</span>
+                <span>{new Date(version.createdAt).toLocaleString()}</span>
+              </>
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 text-[#97F0E5] hover:text-[#60D5E8] transition-colors text-sm font-semibold">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              View Details
-            </button>
-
-            <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-semibold">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Verify Chain
-            </button>
-
-            <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-semibold">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              Share
-            </button>
+            {version.suiscanUrl && (
+              <a
+                href={version.suiscanUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[#97F0E5] hover:text-[#60D5E8] transition-colors text-sm font-semibold"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View on SuiScan
+              </a>
+            )}
           </div>
         </div>
       ))}

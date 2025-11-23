@@ -1,5 +1,4 @@
 import ProfileCard from '../components/ProfileCard'
-import adrianImageSvg from '@/assets/svg/Adrian V. image 1.svg'
 import aliBImage from '@/assets/jpg/IMG_1033.jpg'
 import rayanPhoto from '@/assets/jpg/rayan-photo.jpg'
 
@@ -46,7 +45,7 @@ export default function About() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 justify-items-center">
           {/* Ali B. */}
           <ProfileCard
             name="Ali B."
@@ -74,19 +73,6 @@ export default function About() {
               onContactClick={() => window.open('https://www.linkedin.com/in/rayan-elidrissi/', '_blank')}
             />
           </div>
-          
-          {/* Adrian V. */}
-          <ProfileCard
-            name="Adrian V."
-            title="Team Member"
-            handle="adrianv"
-            status="Online"
-            contactText="Contact"
-            avatarUrl={adrianImageSvg}
-            miniAvatarUrl={adrianImageSvg}
-            showUserInfo={true}
-            onContactClick={() => window.open('https://www.linkedin.com/in/adrian-verdes/', '_blank')}
-          />
         </div>
       </div>
     </div>

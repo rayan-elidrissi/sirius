@@ -16,6 +16,7 @@ import { SuiChainService } from '../infrastructure/blockchain/SuiChainService';
 import { EncryptionService } from '../infrastructure/crypto/EncryptionService';
 import { SealService } from '../infrastructure/seal/SealService';
 import { WalrusService } from '../infrastructure/storage/WalrusService';
+import { TeeService } from '../infrastructure/tee/TeeService';
 
 import { CreateDatasetUseCase } from './usecases/CreateDatasetUseCase';
 import { AddManifestEntriesUseCase } from './usecases/AddManifestEntriesUseCase';
@@ -29,6 +30,7 @@ import { UploadFilesUseCase } from './usecases/UploadFilesUseCase';
 import { CommitUseCase } from './usecases/CommitUseCase';
 import { CloneUseCase } from './usecases/CloneUseCase';
 import { PullUseCase } from './usecases/PullUseCase';
+import { VerifyFilesTeeUseCase } from './usecases/VerifyFilesTeeUseCase';
 
 /**
  * Application Container - Singleton
@@ -51,6 +53,7 @@ export class Container {
   readonly encryptionService = new EncryptionService();
   readonly sealService: SealService;
   readonly walrusService: WalrusService;
+  readonly teeService = new TeeService();
 
   // Use Cases
   readonly createDatasetUseCase = new CreateDatasetUseCase(this.datasetRepository);
@@ -92,6 +95,7 @@ export class Container {
   readonly commitUseCase: CommitUseCase;
   readonly cloneUseCase: CloneUseCase;
   readonly pullUseCase: PullUseCase;
+  readonly verifyFilesTeeUseCase: VerifyFilesTeeUseCase;
 
   private constructor() {
     this.prisma = new PrismaClient();
@@ -121,7 +125,10 @@ export class Container {
     this.commitUseCase = new CommitUseCase(
       this.walrusService,
       this.suiChainService,
-      this.localRepoIndexRepository
+      this.localRepoIndexRepository,
+      this.sealService,
+      this.encryptionService,
+      this.teeService
     );
 
     this.cloneUseCase = new CloneUseCase(
@@ -133,6 +140,15 @@ export class Container {
 
     this.pullUseCase = new PullUseCase(
       this.suiChainService
+    );
+
+    this.verifyFilesTeeUseCase = new VerifyFilesTeeUseCase(
+      this.walrusService,
+      this.suiChainService,
+      this.localRepoIndexRepository,
+      this.sealService,
+      this.encryptionService,
+      this.teeService
     );
   }
 

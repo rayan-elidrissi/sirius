@@ -182,6 +182,21 @@ export class LocalRepoIndexRepository implements ILocalRepoIndexRepository {
     });
   }
 
+  async removeStagedEntry(entryId: string): Promise<void> {
+    await this.prisma.localManifestEntry.delete({
+      where: { id: entryId },
+    });
+  }
+
+  async updateStagedEntryMetadata(entryId: string, metadata: any): Promise<void> {
+    await this.prisma.localManifestEntry.update({
+      where: { id: entryId },
+      data: {
+        metadata: JSON.stringify(metadata),
+      },
+    });
+  }
+
   async cacheCommit(input: CacheCommitInput): Promise<LocalCommitCache> {
     const commit = await this.prisma.localCommitCache.create({
       data: {
@@ -191,7 +206,7 @@ export class LocalRepoIndexRepository implements ILocalRepoIndexRepository {
         manifestBlobId: input.manifestBlobId,
         merkleRoot: input.merkleRoot,
         author: input.author,
-        timestampMs: input.timestampMs,
+        timestampMs: BigInt(input.timestampMs), // Convert to BigInt for Prisma
       },
     });
 
@@ -203,7 +218,7 @@ export class LocalRepoIndexRepository implements ILocalRepoIndexRepository {
       manifestBlobId: commit.manifestBlobId,
       merkleRoot: commit.merkleRoot,
       author: commit.author,
-      timestampMs: commit.timestampMs,
+      timestampMs: Number(commit.timestampMs), // Convert BigInt back to number for interface
       cachedAt: commit.cachedAt,
     };
   }
@@ -223,9 +238,28 @@ export class LocalRepoIndexRepository implements ILocalRepoIndexRepository {
       manifestBlobId: commit.manifestBlobId,
       merkleRoot: commit.merkleRoot,
       author: commit.author,
-      timestampMs: commit.timestampMs,
+      timestampMs: Number(commit.timestampMs), // Convert BigInt back to number for interface
       cachedAt: commit.cachedAt,
     };
+  }
+
+  async getCachedCommits(repoObjectId: string): Promise<LocalCommitCache[]> {
+    const commits = await this.prisma.localCommitCache.findMany({
+      where: { repoObjectId },
+      orderBy: { timestampMs: 'asc' }, // Oldest first (V1 = first commit)
+    });
+
+    return commits.map(commit => ({
+      id: commit.id,
+      repoObjectId: commit.repoObjectId,
+      commitObjectId: commit.commitObjectId,
+      parentCommitId: commit.parentCommitId,
+      manifestBlobId: commit.manifestBlobId,
+      merkleRoot: commit.merkleRoot,
+      author: commit.author,
+      timestampMs: Number(commit.timestampMs), // Convert BigInt back to number for interface
+      cachedAt: commit.cachedAt,
+    }));
   }
 }
 

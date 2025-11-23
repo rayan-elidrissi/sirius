@@ -278,6 +278,37 @@ router.get('/:repoObjectId/staged', async (req: Request, res: Response, next) =>
 });
 
 /**
+ * GET /api/repos/:repoObjectId/verify-tee
+ * Verify staged files with TEE (without burning)
+ * Query: ?callerAddress=0x...
+ * Returns verification status for each file
+ */
+router.get('/:repoObjectId/verify-tee', async (req: Request, res: Response, next) => {
+  try {
+    const { repoObjectId } = req.params;
+    const { callerAddress } = req.query;
+
+    if (!callerAddress || typeof callerAddress !== 'string') {
+      const error: ApiError = new Error('callerAddress query parameter is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const result = await container.verifyFilesTeeUseCase.execute({
+      repoObjectId,
+      callerAddress,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/repos/:repoObjectId/commit
  * Prepare transaction to commit staged files
  * Body: { authorAddress: string, note?: string }
@@ -347,6 +378,58 @@ router.post('/:repoObjectId/commit/execute', async (req: Request, res: Response,
     res.status(201).json({
       success: true,
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/repos/:repoObjectId/commits
+ * Get all commits (versions) for a repository
+ */
+router.get('/:repoObjectId/commits', async (req: Request, res: Response, next) => {
+  try {
+    const { repoObjectId } = req.params;
+
+    if (!repoObjectId || !repoObjectId.startsWith('0x') || repoObjectId.length < 10) {
+      const error: ApiError = new Error(`Invalid repoObjectId format: ${repoObjectId}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Get commits from cache (they're cached when created)
+    const cachedCommits = await container.localRepoIndexRepository.getCachedCommits(repoObjectId);
+    
+    // Generate SuiScan URLs for each commit
+    const network = process.env.SUI_NETWORK || 'testnet';
+    const networkPath = network === 'testnet' ? 'testnet' : network === 'mainnet' ? '' : 'devnet';
+    const baseUrl = networkPath ? `https://suiscan.xyz/${networkPath}` : 'https://suiscan.xyz';
+    
+    const commits = cachedCommits.map(cached => ({
+      id: cached.commitObjectId,
+      commitObjectId: cached.commitObjectId,
+      repoObjectId: cached.repoObjectId,
+      parentCommitId: cached.parentCommitId,
+      merkleRoot: cached.merkleRoot,
+      manifestBlobId: cached.manifestBlobId,
+      author: cached.author,
+      timestampMs: cached.timestampMs,
+      createdAt: new Date(cached.timestampMs).toISOString(),
+      suiscanUrl: `${baseUrl}/object/${cached.commitObjectId}`,
+      // Map to frontend Version type fields
+      versionRoot: cached.merkleRoot,
+      parentRoot: cached.parentCommitId,
+    }));
+    
+    // Already sorted by timestamp desc from getCachedCommits
+    
+    res.json({
+      success: true,
+      data: {
+        commits,
+        count: commits.length,
+      },
     });
   } catch (error) {
     next(error);

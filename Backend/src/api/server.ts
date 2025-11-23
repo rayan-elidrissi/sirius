@@ -10,10 +10,26 @@ import reposRouter from './routes/repos';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Load environment variables
-// Use path.resolve to ensure we load from Backend/.env
+// Use path.resolve to ensure we load from root .env
 // override: false ensures command-line env vars take precedence
 import path from 'path';
-dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: false });
+const envPath = path.resolve(__dirname, '../../.env');
+const envResult = dotenv.config({ path: envPath, override: false });
+if (envResult.error) {
+  console.warn(`[Server] Failed to load .env from ${envPath}: ${envResult.error.message}`);
+} else if (envResult.parsed) {
+  console.log(`[Server] ✅ Loaded ${Object.keys(envResult.parsed).length} env vars from .env`);
+  console.log(`[Server] Loaded vars: ${Object.keys(envResult.parsed).join(', ')}`);
+  // Debug: Check if ANTHROPIC_API_KEY is loaded
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log(`[Server] ✅ ANTHROPIC_API_KEY is loaded (${process.env.ANTHROPIC_API_KEY.substring(0, 10)}...)`);
+  } else {
+    console.warn(`[Server] ⚠️  ANTHROPIC_API_KEY not found in loaded env vars`);
+    console.warn(`[Server] Available env vars: ${Object.keys(process.env).filter(k => k.includes('ANTHROPIC') || k.includes('API')).join(', ') || 'none'}`);
+  }
+} else {
+  console.warn(`[Server] ⚠️  No env vars loaded from .env (file may be empty or not found)`);
+}
 
 const app: Express = express();
 // PORT from environment (command line) takes precedence over .env

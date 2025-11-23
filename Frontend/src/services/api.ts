@@ -144,6 +144,31 @@ export const api = {
   },
 
   /**
+   * Verify staged files with TEE
+   * Returns verification status for each file (without burning)
+   */
+  async verifyFilesTee(repoObjectId: string, callerAddress: string): Promise<{
+    files: Array<{
+      entryId: string;
+      filename: string;
+      mimeType: string | null;
+      size: number;
+      verified: boolean;
+      decision: boolean;
+      weapon: boolean;
+      description: string;
+      error?: string;
+    }>;
+    totalFiles: number;
+    legalFiles: number;
+    illegalFiles: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/repos/${repoObjectId}/verify-tee?callerAddress=${encodeURIComponent(callerAddress)}`);
+    const result = await handleResponse<{ data: any }>(response);
+    return result.data;
+  },
+
+  /**
    * Prepare transaction to delete a repository (soft delete)
    */
   async prepareDeleteRepo(data: {
@@ -413,14 +438,16 @@ export const api = {
   // ============ VERSIONS ============
 
   /**
-   * Get versions for a repository (Move-first)
+   * Get versions (commits) for a repository (Move-first)
    * Uses repoObjectId instead of datasetId
-   * For now, return empty array as versions are stored on-chain as Commit objects
    */
   async getVersions(repoObjectId: string): Promise<{ versions: any[] }> {
-    // TODO: Implement route to fetch commits from Sui
-    // For now, return empty array
-    return { versions: [] };
+    const response = await fetch(`${API_BASE_URL}/repos/${repoObjectId}/commits`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch versions: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return { versions: data.data?.commits || [] };
   },
 
   /**
